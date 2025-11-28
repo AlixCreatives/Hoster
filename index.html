@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelVault - Local Image Host</title>
+    <style>
+        /* --- CSS VARIABLES & THEME --- */
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --text: #f1f5f9;
+            --text-light: #94a3b8;
+            --border: #334155;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            transition: var(--transition);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- LAYOUT UTILITIES --- */
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            padding: 2rem;
+        }
+
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- BUTTONS & INPUTS --- */
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: var(--radius);
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+
+        .btn-icon {
+            background: transparent;
+            color: var(--text);
+            padding: 0.5rem;
+        }
+
+        input {
+            padding: 0.75rem;
+            border-radius: var(--radius);
+            border: 2px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            width: 100%;
+            font-size: 1rem;
+            outline: none;
+        }
+        input:focus { border-color: var(--primary); }
+
+        /* --- THEME TOGGLE --- */
+        .theme-toggle {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+        }
+
+        /* --- LOGIN SCREEN --- */
+        #login-view {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 90vh;
+            text-align: center;
+        }
+
+        .login-card {
+            background: var(--surface);
+            padding: 2.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--border);
+        }
+
+        .login-card h1 { margin-bottom: 0.5rem; }
+        .login-card p { color: var(--text-light); margin-bottom: 2rem; }
+
+        /* --- DASHBOARD --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stats {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        /* --- UPLOAD AREA --- */
+        .upload-zone {
+            background: var(--surface);
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 3rem;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 2rem;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--primary);
+            background-color: rgba(99, 102, 241, 0.05);
+        }
+
+        .upload-icon { font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; }
+        
+        #file-input {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* --- GALLERY GRID --- */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .image-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            position: relative;
+            transition: var(--transition);
+        }
+
+        .image-card:hover { transform: translateY(-5px); }
+
+        .img-container {
+            height: 200px;
+            width: 100%;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .img-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .card-details { padding: 1rem; }
+        .card-date { font-size: 0.8rem; color: var(--text-light); margin-bottom: 0.5rem; }
+
+        .card-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            flex: 1;
+        }
+
+        .btn-copy { background-color: var(--surface); border: 1px solid var(--border); color: var(--text); }
+        .btn-copy:hover { background-color: var(--bg); }
+        
+        .btn-delete { background-color: #fee2e2; color: #ef4444; }
+        .btn-delete:hover { background-color: #fecaca; }
+
+        /* --- TOAST --- */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text);
+            color: var(--bg);
+            padding: 10px 20px;
+            border-radius: 50px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        #toast.show { opacity: 1; }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            .container { padding: 1rem; }
+            .login-card { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <button class="theme-toggle btn-icon" id="theme-btn" onclick="toggleTheme()">🌙</button>
+
+    <div id="toast">Notification</div>
+
+    <div id="login-view" class="container">
+        <div class="login-card fade-in">
+            <h1>PixelVault</h1>
+            <p>Enter your user code to access your gallery.</p>
+            <form onsubmit="handleLogin(event)">
+                <input type="number" id="user-code-input" placeholder="Enter Code (e.g., 567)" required>
+                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Access Vault</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboard-view" class="container hidden">
+        <header class="fade-in">
+            <div>
+                <h2 id="user-welcome">Vault #</h2>
+                <div class="stats">Stored locally on this device</div>
+            </div>
+            <button onclick="logout()" class="btn-copy">Logout</button>
+        </header>
+
+        <div class="upload-zone fade-in" id="drop-zone">
+            <div class="upload-icon">☁️</div>
+            <h3>Click or Drag & Drop to Upload</h3>
+            <p style="color: var(--text-light); margin-top: 0.5rem">JPG, PNG, WebP supported</p>
+            <input type="file" id="file-input" accept="image/*" multiple onchange="handleFileSelect(event)">
+        </div>
+
+        <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <h3>Your Gallery</h3>
+            <span class="stats" id="img-count">0 images</span>
+        </div>
+        
+        <div id="gallery-grid" class="gallery">
+            </div>
+    </div>
+
+    <script>
+        /* --- 1. GLOBAL STATE & CONFIG --- */
+        let db; // IndexedDB instance
+        let currentUser = null;
+        const DB_NAME = 'PixelVaultDB';
+        const STORE_NAME = 'images';
+
+        /* --- 2. INDEXEDDB SETUP --- */
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        // Create object store with 'id' as key
+                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                        // Create index to search by userCode
+                        store.createIndex('userCode', 'userCode', { unique: false });
+                    }
+                };
+
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    resolve(db);
+                };
+
+                request.onerror = (e) => reject("DB Error");
+            });
+        }
+
+        /* --- 3. AUTHENTICATION LOGIC --- */
+        async function handleLogin(e) {
+            e.preventDefault();
+            const input = document.getElementById('user-code-input');
+            const code = input.value.trim();
+
+            if (!code) return showToast("Please enter a code");
+
+            currentUser = code;
+            
+            // Switch UI
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            document.getElementById('user-welcome').textContent = `Vault #${currentUser}`;
+            
+            await loadGallery();
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('user-code-input').value = '';
+            document.getElementById('dashboard-view').classList.add('hidden');
+            document.getElementById('login-view').classList.remove('hidden');
+        }
+
+        /* --- 4. IMAGE UPLOAD LOGIC --- */
+        
+        // Handle Drag & Drop styling
+        const dropZone = document.getElementById('drop-zone');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            ([...files]).forEach(uploadImage);
+        }
+
+        function uploadImage(file) {
+            // Validate image type
+            if (!file.type.startsWith('image/')) {
+                showToast(`Skipped ${file.name}: Not an image`);
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            // Convert to Blob for storage
+            reader.readAsArrayBuffer(file);
+
+            reader.onload = async function() {
+                const blob = new Blob([reader.result], { type: file.type });
+                
+                const imageRecord = {
+                    userCode: currentUser,
+                    blob: blob,
+                    name: file.name,
+                    date: new Date().toISOString(),
+                    type: file.type
+                };
+
+                // Save to IndexedDB
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                store.add(imageRecord);
+
+                transaction.oncomplete = () => {
+                    showToast("Image uploaded!");
+                    loadGallery(); // Refresh gallery
+                };
+            };
+        }
+
+        /* --- 5. GALLERY SYSTEM --- */
+        async function loadGallery() {
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = ''; // Clear current
+            
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const index = store.index('userCode');
+            const request = index.getAll(currentUser);
+
+            request.onsuccess = () => {
+                const images = request.result;
+                document.getElementById('img-count').textContent = `${images.length} images`;
+
+                // Sort by new first
+                images.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                images.forEach(imgData => {
+                    const url = URL.createObjectURL(imgData.blob);
+                    const dateStr = new Date(imgData.date).toLocaleDateString();
+                    
+                    const card = document.createElement('div');
+                    card.className = 'image-card fade-in';
+                    card.innerHTML = `
+                        <div class="img-container">
+                            <img src="${url}" alt="${imgData.name}" loading="lazy">
+                        </div>
+                        <div class="card-details">
+                            <div class="card-date">${dateStr}</div>
+                            <div class="card-actions">
+                                <button onclick="copyImageURL('${url}', '${imgData.type}')" class="btn-sm btn-copy">Copy URL</button>
+                                <button onclick="deleteImage(${imgData.id})" class="btn-sm btn-delete">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            };
+        }
+
+        function deleteImage(id) {
+            if(!confirm("Delete this image permanently?")) return;
+
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            store.delete(id);
+
+            transaction.oncomplete = () => {
+                showToast("Image deleted");
+                loadGallery();
+            };
+        }
+
+        /* --- 6. UTILITIES (Copy URL, Theme, Toast) --- */
+        
+        async function copyImageURL(blobUrl, mimeType) {
+            // Blob URLs are local only. To make it useful for copy-paste, 
+            // we convert the blob back to a Data URI (Base64) so it can be pasted anywhere.
+            try {
+                const blob = await fetch(blobUrl).then(r => r.blob());
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    const base64data = reader.result;
+                    navigator.clipboard.writeText(base64data).then(() => {
+                        showToast("Base64 Data URI Copied!");
+                    });
+                }
+                reader.readAsDataURL(blob);
+            } catch (err) {
+                showToast("Failed to copy");
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Theme Handling
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('theme-btn');
+            
+            if (body.getAttribute('data-theme') === 'dark') {
+                body.removeAttribute('data-theme');
+                btn.textContent = '🌙';
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                btn.textContent = '☀️';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Load Theme
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.getElementById('theme-btn').textContent = '☀️';
+            }
+
+            // Init DB
+            try {
+                await initDB();
+                console.log("Database initialized");
+            } catch (e) {
+                console.error(e);
+                alert("This browser doesn't support IndexedDB.");
+            }
+        });
+
+    </script>
+</body>
+</html>
