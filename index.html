@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CloudSnap v4 - Folders & Compression</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --border: #e2e8f0;
+            --radius: 14px;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --text: #f8fafc;
+            --border: #334155;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { 
+            font-family: -apple-system, system-ui, sans-serif; 
+            background: var(--bg); color: var(--text); 
+            margin: 0; padding: 0; min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .container { width: 100%; max-width: 900px; padding: 15px; }
+        .hidden { display: none !important; }
+        
+        /* ICONS & BUTTONS */
+        button { cursor: pointer; border: none; font-weight: 600; transition: 0.2s; border-radius: 8px; }
+        button:active { transform: scale(0.96); }
+        .btn-primary { background: var(--primary); color: white; padding: 10px 20px; }
+        .btn-text { background: none; color: var(--text); padding: 8px; }
+        .btn-icon { font-size: 1.2rem; padding: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 50%; width: 40px; height: 40px; }
+
+        /* HEADER & NAV */
+        header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 15px 0; margin-bottom: 10px;
+        }
+        .breadcrumbs { font-size: 1.1rem; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        .crumb-active { color: var(--primary); }
+
+        /* UPLOAD ZONE */
+        .upload-zone {
+            background: var(--surface); border: 2px dashed var(--border);
+            border-radius: var(--radius); padding: 30px 20px; text-align: center;
+            margin-bottom: 20px; cursor: pointer; position: relative;
+        }
+        .upload-zone:active { background: rgba(37, 99, 235, 0.05); border-color: var(--primary); }
+        
+        /* PROGRESS */
+        .progress-wrap { margin-top: 15px; display: none; }
+        .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
+        .status { font-size: 0.8rem; margin-top: 5px; color: #64748b; display: flex; justify-content: space-between; }
+
+        /* GRID SYSTEM (Responsive) */
+        .grid {
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* Mobile First */
+            gap: 12px;
+        }
+        @media (min-width: 600px) {
+            .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 20px; }
+        }
+
+        /* FOLDER CARD */
+        .folder-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 15px; text-align: center;
+            cursor: pointer; aspect-ratio: 1/1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; box-shadow: var(--shadow);
+        }
+        .folder-icon { font-size: 2.5rem; margin-bottom: 5px; }
+        .folder-name { font-size: 0.9rem; word-break: break-word; font-weight: 500; }
+
+        /* IMAGE CARD */
+        .img-card {
+            background: var(--surface); border-radius: var(--radius);
+            overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow);
+            position: relative; aspect-ratio: 1/1;
+        }
+        .img-thumb { width: 100%; height: 100%; object-fit: cover; }
+        .img-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            padding: 10px; display: flex; justify-content: flex-end; gap: 8px;
+            opacity: 0; transition: 0.2s;
+        }
+        .img-card:hover .img-overlay, .img-card:active .img-overlay { opacity: 1; }
+        .overlay-btn { background: rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px 8px; font-size: 0.8rem; backdrop-filter: blur(4px); }
+
+        /* LOGIN */
+        .login-box {
+            margin-top: 15vh; background: var(--surface); padding: 30px;
+            border-radius: var(--radius); text-align: center; width: 100%; max-width: 400px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border);
+        }
+        input { width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 8px; margin: 10px 0; outline: none; background: var(--bg); color: var(--text); }
+        
+        /* MODALS */
+        .modal-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal { background: var(--surface); padding: 25px; border-radius: var(--radius); width: 90%; max-width: 350px; }
+
+        /* TOAST */
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 10px 24px; border-radius: 50px; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 200; font-weight: 600; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4); }
+
+    </style>
+</head>
+<body>
+
+    <div id="toast">Notification</div>
+
+    <div id="api-modal" class="modal-bg hidden">
+        <div class="modal">
+            <h3>⚙️ Setup Hosting</h3>
+            <p style="color:#64748b; font-size:0.9rem; margin-bottom:10px;">Get free key from <a href="https://api.imgbb.com/" target="_blank">api.imgbb.com</a></p>
+            <input type="text" id="api-key" placeholder="Paste API Key">
+            <button class="btn-primary" style="width:100%" onclick="saveApi()">Save & Start</button>
+        </div>
+    </div>
+
+    <div id="folder-modal" class="modal-bg hidden">
+        <div class="modal">
+            <h3>New Folder</h3>
+            <input type="text" id="folder-name-in" placeholder="Folder Name (e.g. Vacation)">
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button class="btn-primary" style="flex:1" onclick="createFolder()">Create</button>
+                <button class="btn-text" style="flex:1" onclick="toggleFolderModal(false)">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-login" class="container">
+        <div class="login-box">
+            <h1>CloudSnap v4</h1>
+            <p style="color:#64748b; margin-bottom:20px;">Smart Compression • Folders • Bulk</p>
+            <form onsubmit="login(event)">
+                <input type="number" id="user-code" placeholder="User Code" required>
+                <button class="btn-primary" style="width:100%">Access Vault</button>
+            </form>
+            <br>
+            <button class="btn-text" onclick="toggleApiModal(true)">Settings</button>
+        </div>
+    </div>
+
+    <div id="view-dash" class="container hidden">
+        <header>
+            <div class="breadcrumbs" id="breadcrumbs">
+                <span onclick="goHome()">🏠 Home</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-icon" onclick="toggleFolderModal(true)" title="New Folder">📂</button>
+                <button class="btn-icon" onclick="logout()" title="Logout">🚪</button>
+            </div>
+        </header>
+
+        <div class="upload-zone" onclick="document.getElementById('file-in').click()">
+            <h3 style="margin:0">Tap to Upload</h3>
+            <p style="margin:5px 0 0; color:#64748b; font-size:0.85rem">Auto-Compress (High Quality) & Bulk Upload</p>
+            
+            <div id="progress" class="progress-wrap">
+                <div class="progress-bar"><div id="p-fill" class="progress-fill"></div></div>
+                <div class="status"><span id="p-text">Processing...</span><span id="p-count"></span></div>
+            </div>
+
+            <input type="file" id="file-in" hidden multiple accept="image/*" onchange="handleBulkUpload(this.files)">
+        </div>
+
+        <div id="grid" class="grid"></div>
+    </div>
+
+    <script>
+        /* --- CONFIGURATION --- */
+        const DB_NAME = 'CloudSnap_v4'; 
+        let db;
+        let currentUser = null;
+        let currentFolder = null; // null = root
+        let apiKey = localStorage.getItem('cs_key') || '';
+
+        /* --- INITIALIZATION --- */
+        window.onload = () => {
+            initDB();
+            if(!apiKey) toggleApiModal(true);
+        };
+
+        function initDB() {
+            const req = indexedDB.open(DB_NAME, 2); // Version 2 for folders
+            
+            req.onupgradeneeded = e => {
+                const db = e.target.result;
+                // Store 1: Images
+                if (!db.objectStoreNames.contains('images')) {
+                    const store = db.createObjectStore('images', { keyPath: 'id', autoIncrement: true });
+                    store.createIndex('user', 'user', { unique: false });
+                    store.createIndex('folder', 'folderId', { unique: false });
+                }
+                // Store 2: Folders
+                if (!db.objectStoreNames.contains('folders')) {
+                    const store = db.createObjectStore('folders', { keyPath: 'id', autoIncrement: true });
+                    store.createIndex('user', 'user', { unique: false });
+                }
+            };
+            req.onsuccess = e => { db = e.target.result; };
+        }
+
+        /* --- AUTH --- */
+        function login(e) {
+            e.preventDefault();
+            const code = document.getElementById('user-code').value;
+            if(!code) return;
+            if(!apiKey) return toggleApiModal(true);
+
+            currentUser = code;
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('view-dash').classList.remove('hidden');
+            loadContent();
+        }
+        function logout() { location.reload(); }
+
+        /* --- FOLDER SYSTEM --- */
+        function createFolder() {
+            const name = document.getElementById('folder-name-in').value.trim();
+            if(!name) return;
+            
+            const tx = db.transaction(['folders'], 'readwrite');
+            tx.objectStore('folders').add({
+                name: name,
+                user: currentUser,
+                parentId: currentFolder // For nested folders (future proofing)
+            });
+            tx.oncomplete = () => {
+                toggleFolderModal(false);
+                document.getElementById('folder-name-in').value = '';
+                loadContent();
+                showToast("Folder Created");
+            };
+        }
+
+        function enterFolder(id, name) {
+            currentFolder = id;
+            updateBreadcrumbs(name);
+            loadContent();
+        }
+
+        function goHome() {
+            currentFolder = null;
+            updateBreadcrumbs(null);
+            loadContent();
+        }
+
+        function updateBreadcrumbs(name) {
+            const bc = document.getElementById('breadcrumbs');
+            if(currentFolder === null) {
+                bc.innerHTML = `<span onclick="goHome()">🏠 Home</span>`;
+            } else {
+                bc.innerHTML = `<span onclick="goHome()" style="color:#64748b; font-weight:normal;">Home</span> <span style="margin:0 5px">/</span> <span class="crumb-active">${name}</span>`;
+            }
+        }
+
+        /* --- COMPRESSION ENGINE (The "Shrink" Logic) --- */
+        // This function keeps 100% resolution but aggressively optimizes quality for size
+        function compressImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                
+                reader.onload = (e) => {
+                    img.src = e.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        // KEEP ORIGINAL RESOLUTION
+                        canvas.width = img.width; 
+                        canvas.height = img.height;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        // MAGIC: 0.7 Quality JPEG is the "Sweet Spot"
+                        // It visually looks identical but drops file size by 50-80%
+                        canvas.toBlob((blob) => {
+                            resolve(blob);
+                        }, 'image/jpeg', 0.75); 
+                    };
+                };
+            });
+        }
+
+        /* --- BULK UPLOAD & QUEUE --- */
+        async function handleBulkUpload(fileList) {
+            if(!fileList.length) return;
+
+            const ui = document.getElementById('progress');
+            const fill = document.getElementById('p-fill');
+            const text = document.getElementById('p-text');
+            const count = document.getElementById('p-count');
+            
+            ui.style.display = 'block';
+
+            // Convert to array and sort by name to ensure order 1,2,3...
+            const files = Array.from(fileList).sort((a,b) => 
+                a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+            );
+
+            for(let i=0; i<files.length; i++) {
+                const file = files[i];
+                
+                // 1. Update UI
+                text.textContent = `Compressing: ${file.name}`;
+                count.textContent = `${i+1}/${files.length}`;
+                fill.style.width = `${((i)/files.length)*100}%`;
+
+                try {
+                    // 2. COMPRESS
+                    const compressedBlob = await compressImage(file);
+                    
+                    // 3. UPLOAD (Wait for it)
+                    text.textContent = `Uploading: ${file.name}`;
+                    await uploadToCloud(compressedBlob, file.name);
+                    
+                } catch(err) {
+                    console.error("Error", err);
+                }
+            }
+
+            // Finish
+            fill.style.width = '100%';
+            text.textContent = "Done!";
+            setTimeout(() => {
+                ui.style.display = 'none';
+                fill.style.width = '0';
+                document.getElementById('file-in').value = '';
+                loadContent();
+            }, 1500);
+        }
+
+        function uploadToCloud(blob, originalName) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('image', blob, originalName);
+
+                fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if(data.success) {
+                        // Save metadata to DB
+                        const tx = db.transaction(['images'], 'readwrite');
+                        tx.objectStore('images').add({
+                            user: currentUser,
+                            folderId: currentFolder, // CURRENT FOLDER
+                            url: data.data.url,
+                            thumb: data.data.thumb.url,
+                            name: originalName,
+                            date: new Date()
+                        });
+                        tx.oncomplete = resolve;
+                    } else {
+                        reject();
+                    }
+                })
+                .catch(reject);
+            });
+        }
+
+        /* --- RENDERING --- */
+        function loadContent() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            // 1. LOAD FOLDERS (Only if in Root)
+            if(currentFolder === null) {
+                const txF = db.transaction(['folders'], 'readonly');
+                const storeF = txF.objectStore('folders');
+                const reqF = storeF.index('user').getAll(currentUser);
+                
+                reqF.onsuccess = () => {
+                    reqF.result.forEach(f => {
+                        const el = document.createElement('div');
+                        el.className = 'folder-card';
+                        el.onclick = () => enterFolder(f.id, f.name);
+                        el.innerHTML = `
+                            <div class="folder-icon">📂</div>
+                            <div class="folder-name">${f.name}</div>
+                        `;
+                        grid.appendChild(el);
+                    });
+                };
+            }
+
+            // 2. LOAD IMAGES (Filter by current Folder)
+            const txI = db.transaction(['images'], 'readonly');
+            const storeI = txI.objectStore('images');
+            const reqI = storeI.index('user').getAll(currentUser);
+
+            reqI.onsuccess = () => {
+                let images = reqI.result;
+                // Filter logic in JS because IndexedDB compound indexes are complex for single file
+                images = images.filter(img => img.folderId === currentFolder);
+                // Sort by ID (Upload Order)
+                images.sort((a,b) => a.id - b.id);
+
+                images.forEach(img => {
+                    const el = document.createElement('div');
+                    el.className = 'img-card';
+                    el.innerHTML = `
+                        <img src="${img.thumb}" class="img-thumb" loading="lazy">
+                        <div class="img-overlay">
+                            <button class="overlay-btn" onclick="copyLink('${img.url}')">Copy</button>
+                            <button class="overlay-btn" style="background:rgba(239, 68, 68, 0.6)" onclick="delImg(${img.id})">Del</button>
+                        </div>
+                    `;
+                    grid.appendChild(el);
+                });
+
+                if(grid.innerHTML === '') grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; color:#94a3b8; margin-top:20px;">Empty Folder</p>`;
+            };
+        }
+
+        /* --- UTILS --- */
+        function delImg(id) {
+            if(!confirm("Delete?")) return;
+            const tx = db.transaction(['images'], 'readwrite');
+            tx.objectStore('images').delete(id);
+            tx.oncomplete = loadContent;
+        }
+
+        function copyLink(url) {
+            navigator.clipboard.writeText(url).then(() => showToast("Link Copied!"));
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.opacity = '1';
+            t.style.transform = 'translate(-50%, -10px)';
+            setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translate(-50%, 0)'; }, 2000);
+        }
+
+        function saveApi() {
+            const k = document.getElementById('api-key').value.trim();
+            if(k) { apiKey = k; localStorage.setItem('cs_key', k); toggleApiModal(false); }
+        }
+
+        function toggleApiModal(s) { document.getElementById('api-modal').classList.toggle('hidden', !s); }
+        function toggleFolderModal(s) { document.getElementById('folder-modal').classList.toggle('hidden', !s); }
+
+    </script>
+</body>
+</html>
